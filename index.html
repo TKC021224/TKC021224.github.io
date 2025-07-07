@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TKCルーレット</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the roulette wheel and overall layout */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        #app-container {
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* Rounded corners for the container */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            max-width: 600px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative; /* For positioning the settings icon */
+        }
+        canvas {
+            display: block;
+            background-color: #e0e7ff; /* Light blue background for canvas */
+            border-radius: 50%; /* Make canvas circular */
+            margin-bottom: 1.5rem;
+            border: 8px solid #6366f1; /* Purple border for the wheel */
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); /* Glowing effect */
+            width: 100%; /* Make canvas responsive */
+            max-width: 300px; /* Max width for larger screens */
+            height: auto; /* Maintain aspect ratio */
+            aspect-ratio: 1 / 1; /* Ensure it's a perfect circle */
+            min-width: 100px; /* Added minimum width to prevent negative radius */
+            min-height: 100px; /* Added minimum height to prevent negative radius */
+        }
+        .item-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            width: 100%;
+        }
+        .item-input-group input[type="text"] {
+            flex-grow: 1;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .item-input-group input[type="number"] {
+            width: 70px;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        .btn {
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem; /* More rounded buttons */
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* Gradient for primary button */
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 8px rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+            border: none;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+            transform: translateY(-1px);
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+            transform: translateY(-1px);
+        }
+        #result-display {
+            margin-top: 1.5rem;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #1f2937;
+            text-align: center;
+            min-height: 2.5rem; /* Ensure space for result */
+        }
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        /* Settings Icon */
+        #settings-icon {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            cursor: pointer;
+            z-index: 10;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        #settings-icon:hover {
+            background-color: #f0f0f0;
+        }
+        #settings-icon svg {
+            width: 28px;
+            height: 28px;
+            color: #6366f1; /* Purple color for the icon */
+        }
+
+        /* Settings Overlay/Modal */
+        #settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        #settings-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #settings-content {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh; /* Limit height for scrollability on small screens */
+            overflow-y: auto; /* Enable scrolling for many items */
+            position: relative;
+        }
+        #close-settings-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        #close-settings-btn:hover {
+            color: #374151;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Settings Icon -->
+        <div id="settings-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.872a.75.75 0 0 1-.585.53l-1.923.232a1.5 1.5 0 0 1-1.164-1.164L5.043 3.4C4.893 2.5 4.111 1.837 3.194 1.837c-.917 0-1.699.663-1.85 1.567l-.2.992a.75.75 0 0 1-.586.53l-1.923.232A1.5 1.5 0 0 0 .043 6.03l.2.992a.75.75 0 0 1-.585.53L-1.923 7.78a1.5 1.5 0 0 0-1.164-1.164L-3.4 6.043C-4.3 5.893-4.963 5.111-4.963 4.194c0-.917.663-1.699 1.567-1.85l.992-.2a.75.75 0 0 1 .53-.586l.232-1.923A1.5 1.5 0 0 0-2.03 0.043l.992.2a.75.75 0 0 1 .53-.585l.232-1.923A1.5 1.5 0 0 0 3.97 0.043l.992.2a.75.75 0 0 1 .53-.585l.232-1.923A1.5 1.5 0 0 0 11.078 2.25Zm-8.686 9.072a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" />
+            </svg>
+        </div>
+
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">TKCルーレット</h1>
+
+        <!-- Roulette Canvas -->
+        <canvas id="rouletteCanvas" width="300" height="300"></canvas>
+
+        <!-- Result Display -->
+        <div id="result-display" class="mb-6"></div>
+
+        <!-- Spin Button -->
+        <button id="spinButton" class="btn btn-primary w-full mb-4">スピン！</button>
+
+        <!-- Main Item List and Controls -->
+        <div id="main-item-list" class="w-full mb-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">項目</h2>
+            <div id="main-items-container">
+                <!-- Items (name only) will be dynamically added here -->
+            </div>
+            <button id="addItemButton" class="btn btn-secondary w-full mt-2">項目を追加</button>
+        </div>
+
+        <!-- Save/Load Buttons (moved back to main app-container) -->
+        <div class="flex flex-col sm:flex-row gap-3 w-full mb-6">
+            <button id="saveButton" class="btn btn-secondary flex-1">設定を保存</button>
+            <button id="loadButton" class="btn btn-secondary flex-1">設定を読み込む</button>
+        </div>
+
+        <!-- Settings Overlay -->
+        <div id="settings-overlay">
+            <div id="settings-content">
+                <button id="close-settings-btn">&times;</button>
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">確率設定</h2>
+                <div id="settings-items-container" class="w-full">
+                    <!-- Items (name and spinWeight) will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Box for alerts -->
+    <div id="message-box"></div>
+
+    <script type="module">
+        const canvas = document.getElementById('rouletteCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinButton = document.getElementById('spinButton');
+        const addItemButton = document.getElementById('addItemButton');
+        const mainItemsContainer = document.getElementById('main-items-container'); // New container for main display
+        const settingsItemsContainer = document.getElementById('settings-items-container'); // Container for settings display
+        const resultDisplay = document.getElementById('result-display');
+        const saveButton = document.getElementById('saveButton');
+        const loadButton = document.getElementById('loadButton');
+        const messageBox = document.getElementById('message-box');
+
+        const settingsIcon = document.getElementById('settings-icon');
+        const settingsOverlay = document.getElementById('settings-overlay');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+
+        // Helper function to normalize angles to [0, 2*PI)
+        function normalizeAngle(angle) {
+            return (angle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        }
+
+        // Initial items with names and spinWeights (probabilities for actual spin)
+        let items = [
+            { name: '項目A', spinWeight: 10 },
+            { name: '項目B', spinWeight: 10 },
+            { name: '項目C', spinWeight: 10 },
+            { name: '項目D', spinWeight: 10 }
+        ];
+
+        let isSpinning = false;
+        let animationFrameId = null;
+
+        // Function to show a temporary message
+        function showMessage(message, duration = 2000) {
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
+        }
+
+        // Function to draw the roulette wheel and pointer
+        function drawRoulette(rotationAngle = 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            // Ensure radius is always positive or zero
+            const radius = Math.max(0, Math.min(centerX, centerY) - 10); // Added Math.max(0, ...)
+
+            // Use ALL items for drawing, regardless of spinWeight
+            const itemsToDraw = items;
+
+            // If no items at all, just draw the center and pointer
+            if (itemsToDraw.length === 0) {
+                // Draw center circle
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // Draw pointer
+                ctx.beginPath();
+                ctx.moveTo(centerX, 30); // Point of the arrow
+                ctx.lineTo(centerX - 15, 0); // Top-left base point
+                ctx.lineTo(centerX + 15, 0); // Top-right base point
+                ctx.closePath();
+                ctx.fillStyle = '#ef4444'; // Red pointer
+                ctx.fill();
+                return;
+            }
+
+            const equalSliceAngle = (2 * Math.PI) / itemsToDraw.length; // Divide equally among all items
+            let startAngle = -Math.PI / 2; // Start from 12 o'clock (top)
+
+            // Draw wheel segments
+            ctx.save(); // Save the context state before rotating
+            ctx.translate(centerX, centerY); // Move origin to center for rotation
+            ctx.rotate(rotationAngle); // Apply rotation
+            ctx.translate(-centerX, -centerY); // Move origin back
+
+            itemsToDraw.forEach((item, index) => {
+                const endAngle = startAngle + equalSliceAngle;
+
+                // Draw segment
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                // Assign different colors to segments based on their original index for consistency
+                ctx.fillStyle = `hsl(${items.indexOf(item) * 60}, 70%, 70%)`;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff'; // White border between segments
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw text
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                // Rotate to the center of the segment's visual position
+                ctx.rotate(startAngle + equalSliceAngle / 2);
+                ctx.textAlign = 'center'; // Center the text
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Inter, sans-serif';
+                ctx.fillText(item.name, radius * 0.75, 0); // Position text along the segment's axis
+                ctx.restore();
+
+                startAngle = endAngle;
+            });
+
+            // Draw center circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.restore(); // Restore the context state (undo rotation for the pointer)
+
+            // Draw pointer (triangle at the top, pointing downwards into the wheel)
+            ctx.beginPath();
+            ctx.moveTo(centerX, 30); // Point of the arrow
+            ctx.lineTo(centerX - 15, 0); // Top-left base point
+            ctx.lineTo(centerX + 15, 0); // Top-right base point
+            ctx.closePath();
+            ctx.fillStyle = '#ef4444'; // Red pointer
+            ctx.fill();
+        }
+
+        // Function to update the item list in a specific container
+        function updateItemListUI(containerElement, showSpinWeightInputs) {
+            containerElement.innerHTML = ''; // Clear existing items
+
+            items.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item-input-group';
+                itemDiv.innerHTML = `
+                    <input type="text" value="${item.name}" data-index="${index}" class="item-name-input" placeholder="項目名" ${showSpinWeightInputs ? '' : 'readonly'}>
+                    ${showSpinWeightInputs ? `<input type="number" value="${item.spinWeight}" min="0" max="10" data-index="${index}" class="item-spinWeight-input">` : ''}
+                    <button data-index="${index}" class="remove-item-btn btn btn-danger px-3 py-2 text-sm">削除</button>
+                `;
+                containerElement.appendChild(itemDiv);
+            });
+
+            // Add event listeners for new inputs and buttons
+            containerElement.querySelectorAll('.item-name-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    items[index].name = e.target.value;
+                    updateAllItemLists(); // Update both UIs after name change
+                    drawRoulette(currentRotation);
+                });
+            });
+
+            if (showSpinWeightInputs) {
+                containerElement.querySelectorAll('.item-spinWeight-input').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        const index = parseInt(e.target.dataset.index);
+                        let newValue = parseInt(e.target.value);
+
+                        // If the new value is greater than 10, set it to 0
+                        if (newValue > 10) {
+                            newValue = 0;
+                            e.target.value = 0; // Update the input field value immediately
+                        }
+                        items[index].spinWeight = newValue || 0; // Ensure it's a number, default to 0
+
+                        updateAllItemLists(); // Update both UIs after weight change
+                        drawRoulette(currentRotation);
+                    });
+                });
+            }
+
+            containerElement.querySelectorAll('.remove-item-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    items.splice(index, 1);
+                    updateAllItemLists(); // Update both UIs after removal
+                    drawRoulette(currentRotation);
+                });
+            });
+        }
+
+        // New function to update all item list displays
+        function updateAllItemLists() {
+            updateItemListUI(mainItemsContainer, false); // Main display: no spinWeight inputs, readonly name
+            updateItemListUI(settingsItemsContainer, true); // Settings display: with spinWeight inputs, editable name
+        }
+
+        // Function to add a new item
+        addItemButton.addEventListener('click', () => {
+            items.push({ name: `新しい項目${items.length + 1}`, spinWeight: 10 });
+            updateAllItemLists(); // Update both UIs
+            drawRoulette(currentRotation);
+        });
+
+        // Spin logic
+        let currentRotation = 0; // Current rotation in radians
+        let targetRotation = 0; // Target rotation for the spin
+        let spinDuration = 5000; // milliseconds
+        let startTime = null;
+
+        function animateSpin(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(elapsed / spinDuration, 1);
+
+            // Ease out effect
+            const easeOutProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+
+            currentRotation = targetRotation * easeOutProgress;
+
+            // Only draw the roulette wheel with the current rotation
+            drawRoulette(currentRotation);
+
+            if (progress < 1) {
+                animationFrameId = requestAnimationFrame(animateSpin);
+            } else {
+                isSpinning = false;
+                spinButton.disabled = false;
+                cancelAnimationFrame(animationFrameId);
+                displayResult();
+            }
+        }
+
+        function spinRoulette() {
+            if (isSpinning) return;
+
+            const totalSpinWeight = items.reduce((sum, item) => sum + item.spinWeight, 0);
+            if (totalSpinWeight === 0) {
+                showMessage('ルーレットに有効な項目がありません。');
+                return;
+            }
+
+            isSpinning = true;
+            spinButton.disabled = true;
+            resultDisplay.textContent = 'スピン中...';
+
+            // Determine the winning segment based on spinWeights
+            let randomWeight = Math.random() * totalSpinWeight;
+            let winningItem = null;
+            let currentWeightSum = 0;
+
+            // Filter items for spin logic (only those with spinWeight > 0)
+            const spinnableItems = items.filter(item => item.spinWeight > 0);
+
+            for (let i = 0; i < spinnableItems.length; i++) {
+                const item = spinnableItems[i];
+                if (randomWeight <= (currentWeightSum + item.spinWeight)) {
+                    winningItem = item;
+                    break;
+                }
+                currentWeightSum += item.spinWeight;
+            }
+
+            // Find the index of the winning item among ALL items (for visual alignment)
+            const winningItemOverallIndex = items.indexOf(winningItem);
+
+            // Calculate the target angle based on the *visual* position of the winning item
+            // The pointer is at the top (0 radians).
+            // Each visible slice has an equal angle.
+            const equalSliceAngle = (2 * Math.PI) / items.length; // Use total items length for visual angle
+            // The center of the winning visual slice, relative to the 12 o'clock (top) start of the first segment.
+            // The segments are drawn starting from -Math.PI/2 (top).
+            // So, `targetVisualAngle` is the angle from -Math.PI/2 clockwise to the center of the winning segment.
+            const targetVisualAngle = (-Math.PI / 2) + (winningItemOverallIndex * equalSliceAngle) + (equalSliceAngle / 2);
+
+            // The pointer is fixed at -Math.PI/2 radians (12 o'clock).
+            // We want to rotate the wheel so that `targetVisualAngle` aligns with `-Math.PI/2`.
+            let rotationNeeded = (-Math.PI / 2) - targetVisualAngle; // Rotation to bring targetVisualAngle to -Math.PI/2
+            rotationNeeded = normalizeAngle(rotationNeeded); // Normalize to [0, 2*PI)
+
+            const fullRotations = 5; // Spin at least 5 full times
+            targetRotation = (fullRotations * 2 * Math.PI) + rotationNeeded;
+
+            // Reset start time and begin animation
+            startTime = null;
+            animationFrameId = requestAnimationFrame(animateSpin);
+        }
+
+        function displayResult() {
+            const normalizedCurrentRotation = normalizeAngle(currentRotation);
+
+            // The pointer is fixed at -Math.PI/2 radians (12 o'clock).
+            // We need to find the angle on the *unrotated* wheel (where 12 o'clock is -Math.PI/2)
+            // that is currently under the pointer.
+            let effectivePointerAngle = (-Math.PI / 2) - normalizedCurrentRotation;
+            effectivePointerAngle = normalizeAngle(effectivePointerAngle);
+
+            // Use ALL items for visual segment calculation
+            const itemsForVisualCheck = items;
+            if (itemsForVisualCheck.length === 0) {
+                resultDisplay.textContent = '結果: 項目がありません';
+                return;
+            }
+
+            const equalSliceAngle = (2 * Math.PI) / itemsForVisualCheck.length;
+
+            // Determine the index of the segment under the pointer
+            // effectivePointerAngle is in [0, 2*PI).
+            // Segments are visually laid out from -Math.PI/2 to 3*Math.PI/2.
+            // To map effectivePointerAngle (which is [0, 2PI)) to the segment index,
+            // we need to shift it to align with the start angle of the first segment (-Math.PI/2).
+            let angleRelativeToFirstSegment = normalizeAngle(effectivePointerAngle - (-Math.PI / 2));
+
+            let segmentIndex = Math.floor(angleRelativeToFirstSegment / equalSliceAngle);
+
+            // Safeguard against floating point inaccuracies potentially pushing index out of bounds
+            segmentIndex = Math.min(segmentIndex, itemsForVisualCheck.length - 1);
+            segmentIndex = Math.max(segmentIndex, 0);
+
+            let resultVisibleItem = itemsForVisualCheck[segmentIndex];
+
+            if (resultVisibleItem) {
+                resultDisplay.textContent = `結果: ${resultVisibleItem.name}`;
+            } else {
+                resultDisplay.textContent = '結果を特定できませんでした。';
+            }
+        }
+
+        // Event listeners for settings overlay
+        settingsIcon.addEventListener('click', () => {
+            settingsOverlay.classList.add('visible');
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsOverlay.classList.remove('visible');
+        });
+
+        // Close settings when clicking outside the content
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) {
+                settingsOverlay.classList.remove('visible');
+            }
+        });
+
+
+        // Event listeners
+        spinButton.addEventListener('click', spinRoulette);
+
+        // Save and Load functionality using localStorage
+        saveButton.addEventListener('click', () => {
+            try {
+                localStorage.setItem('rouletteItems', JSON.stringify(items));
+                showMessage('設定を保存しました！');
+            } catch (e) {
+                showMessage('設定の保存に失敗しました。');
+                console.error("Failed to save items to localStorage:", e);
+            }
+        });
+
+        loadButton.addEventListener('click', () => {
+            try {
+                const savedItems = localStorage.getItem('rouletteItems');
+                if (savedItems) {
+                    items = JSON.parse(savedItems);
+                    updateAllItemLists(); // Update both UIs after loading
+                    drawRoulette(currentRotation); // Redraw with current rotation
+                    showMessage('設定を読み込みました！');
+                } else {
+                    showMessage('保存された設定がありません。');
+                }
+            } catch (e) {
+                showMessage('設定の読み込みに失敗しました。');
+                console.error("Failed to load items from localStorage:", e);
+            }
+        });
+
+        // Initial setup
+        window.onload = function() {
+            // Initial canvas size adjustment
+            const canvasStyleWidth = window.getComputedStyle(canvas).width;
+            const canvasStyleHeight = window.getComputedStyle(canvas).height;
+            canvas.width = parseFloat(canvasStyleWidth);
+            canvas.height = parseFloat(canvasStyleHeight);
+
+            drawRoulette();
+            updateAllItemLists(); // Initial update for both displays
+
+            // Ensure canvas is responsive on window resize
+            window.addEventListener('resize', () => {
+                // Re-set canvas dimensions based on CSS for responsiveness
+                const canvasStyleWidth = window.getComputedStyle(canvas).width;
+                const canvasStyleHeight = window.getComputedStyle(canvas).height;
+                canvas.width = parseFloat(canvasStyleWidth);
+                canvas.height = parseFloat(canvasStyleHeight);
+                drawRoulette(currentRotation);
+            });
+        };
+    </script>
+</body>
+</html>
